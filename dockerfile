@@ -1,6 +1,12 @@
+# Enable build-arg substitution
+# syntax=docker/dockerfile:1
+
 FROM maptiler/tileserver-gl:latest
 
-# 1) Install python3, pip & gdown as root
+# 1) Accept your Drive folder ID as a build-arg
+ARG GDRIVE_FOLDER_ID
+
+# 2) Become root to install gdown and Python
 USER root
 RUN apt-get update \
  && apt-get install -y --no-install-recommends python3 python3-pip \
@@ -9,20 +15,19 @@ RUN apt-get update \
 
 WORKDIR /data
 
-# 2) Copy config + entrypoint
-COPY config.json entrypoint.sh /data/
-RUN chmod +x /data/entrypoint.sh \
-    # prepare cache dir under /data
- && mkdir -p /data/.cache/gdown \
- && chown 777 /data
+# 3) Download ALL MBTiles at build time (using --continue to handle large files)
+#    The folder will be flattened into /data.
+RUN export XDG_CACHE_HOME=/data/.cache \
+ && mkdir -p /data/.cache \
+ && gdown --continue --folder "https://drive.google.com/drive/folders/${GDRIVE_FOLDER_ID}" -O /data \
+ && rm -rf /data/.cache \
+ && pip3 uninstall -y gdown
 
-# 3) Tell both the XDG cache and HOME to live in /data
-ENV XDG_CACHE_HOME=/data/.cache
-ENV HOME=/data
+# 4) Copy in your TileServer config
+COPY config.json /data/config.json
 
+# 5) Expose the HTTP port
 EXPOSE 8080
 
-# 4) Drop back to the tileserver non-root user
-USER 1000
-
-ENTRYPOINT ["/data/entrypoint.sh"]
+# 6) Launch TileServer-GL directly (no entrypoint script needed)
+ENTRYPOINT ["tileserver-gl", "--config", "/data/config.json"]
