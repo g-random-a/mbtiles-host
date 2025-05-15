@@ -14,7 +14,7 @@ COPY config.json entrypoint.sh /data/
 RUN chmod +x /data/entrypoint.sh \
     # prepare cache dir under /data
  && mkdir -p /data/.cache/gdown \
- && chown -R 1000:1000 /data
+ && chown -R node:node /data
 
 # 3) Tell both the XDG cache and HOME to live in /data
 ENV XDG_CACHE_HOME=/data/.cache
